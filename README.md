@@ -11,7 +11,7 @@ The dataset consists of simplified ASTs of ~400000 short python programs grouped
     [('Assign', [('Name', ['Store']), ('List', ['Constant', 'Constant', 'Load'])])]
 ```
 
-[blob/main/data/data_statistics.txt](blob/main/data/data_statistics.txt) contains dataset statistics. Decimal quantiles for lines, tokens and maximal tree depths are: (TODO(aleloi): add plots)
+[data/data_statistics.txt](data/data_statistics.txt) contains dataset statistics. Decimal quantiles for lines, tokens and maximal tree depths are: (TODO(aleloi): add plots)
 
     num lines stats: [4.0, 6.0, 7.0, 8.0, 10.0, 11.0, 13.0, 16.0, 21.0]
     num tokens stats: [36.0, 47.0, 57.0, 65.0, 73.0, 82.0, 94.0, 112.0, 146.0]
