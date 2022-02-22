@@ -1,3 +1,4 @@
+from typing import Union, Tuple, List
 from  dataclasses import dataclass, field
 import statistics
 import itertools
@@ -7,13 +8,19 @@ import ast
 import sys
 
 # local imports below
-import read
+from . import read
 
 # This is the most common problems with py3.8-AST-parseable solutions
 # for a part of the data.
 MOST_COMMON = {('1480', 'A'), ('617', 'A'), ('1453', 'A'), ('200', 'B'), ('1454', 'B'), ('1462', 'A'), ('263', 'A'), ('705', 'A'), ('1465', 'A'), ('1462', 'C'), ('1451', 'A'), ('977', 'A'), ('271', 'A'), ('133', 'A'), ('791', 'A'), ('1491', 'A'), ('281', 'A'), ('118', 'A'), ('266', 'B'), ('1462', 'B'), ('160', 'A'), ('1485', 'A'), ('1473', 'B'), ('1466', 'A'), ('1487', 'A'), ('1452', 'A'), ('1328', 'A'), ('677', 'A'), ('1450', 'A'), ('266', 'A'), ('1490', 'A'), ('1451', 'B'), ('1473', 'A'), ('1466', 'C'), ('1469', 'A'), ('1486', 'A'), ('71', 'A'), ('443', 'A'), ('1475', 'A'), ('1472', 'D'), ('486', 'A'), ('50', 'A'), ('1471', 'A'), ('1490', 'C'), ('1466', 'B'), ('479', 'A'), ('58', 'A'), ('122', 'A'), ('1490', 'B'), ('1478', 'A'), ('231', 'A'), ('1455', 'A'), ('1469', 'B'), ('96', 'A'), ('1472', 'A'), ('1475', 'B'), ('1459', 'A'), ('1471', 'B'), ('1467', 'A'), ('41', 'A'), ('4', 'A'), ('158', 'A'), ('1455', 'C'), ('1', 'A'), ('344', 'A'), ('1476', 'A'), ('734', 'A'), ('546', 'A'), ('131', 'A'), ('110', 'A'), ('1481', 'A'), ('1478', 'B'), ('1463', 'B'), ('116', 'A'), ('1455', 'B'), ('1494', 'A'), ('208', 'A'), ('1454', 'D'), ('1472', 'B'), ('1474', 'A'), ('520', 'A'), ('1463', 'A'), ('1476', 'B'), ('318', 'A'), ('1461', 'A'), ('61', 'A'), ('1030', 'A'), ('112', 'A'), ('228', 'A'), ('1481', 'B'), ('236', 'A'), ('1411', 'A'), ('282', 'A'), ('469', 'A'), ('1454', 'A'), ('467', 'A'), ('1474', 'B'), ('1472', 'C'), ('339', 'A'), ('69', 'A'), ('136', 'A'), ('1492', 'A'), ('1454', 'C'), ('59', 'A')}
 
-def to_simple_tree(node: ast.AST) -> list:
+# 10 largest classes (with largest file size)
+MOST_COMMON10 = {('71','A'),  ('1','A'), ('4','A'), ('158','A'), ('231','A'), ('263','A'), ('118','A'), ('112','A'), ('339','A'), ('282','A')}
+
+# Processed token frequencies. Kept so that one can exclude some of the less common ones.
+TOKEN_FREQUENCIES = {'Name': 9896564, 'Load': 8973363, 'Call': 3708524, 'Constant': 3247347, 'Store': 2848715, 'Assign': 1781855, 'BinOp': 1070073, 'Attribute': 985678, 'Expr': 897278, 'Compare': 885553, 'If': 655055, 'Subscript': 646700, 'Add': 591522, 'Module': 442424, 'Eq': 432617, 'For': 370783, 'AugAssign': 313649, 'Sub': 282382, 'Tuple': 178878, 'Mod': 165968, 'arguments': 164552, 'Mult': 160143, 'arg': 146846, 'alias': 137959, 'FunctionDef': 136885, 'BoolOp': 135689, 'Gt': 130665, 'Return': 128730, 'List': 107486, 'UnaryOp': 102230, 'FloorDiv': 93547, 'And': 87624, 'USub': 85157, 'While': 82609, 'NotEq': 81571, 'comprehension': 71816, 'Lt': 67986, 'Div': 65707, 'Slice': 63927, 'ListComp': 61136, 'GtE': 60733, 'Break': 56706, 'Import': 55563, 'LtE': 53641, 'Or': 48065, 'In': 48057, 'ImportFrom': 45774, 'keyword': 37507, 'Lambda': 27667, 'IfExp': 24145, 'Not': 16853, 'NotIn': 16622, 'Continue': 13766, 'Pow': 12080, 'GeneratorExp': 9578, 'Starred': 9039, 'ClassDef': 8923, 'BitAnd': 5865, 'Pass': 5846, 'Dict': 5201, 'FormattedValue': 4150, 'ExceptHandler': 3385, 'Try': 3347, 'RShift': 2752, 'Del': 2267, 'Delete': 2208, 'JoinedStr': 2154, 'Is': 2052, 'Set': 1725, 'BitOr': 1525, 'LShift': 1151, 'BitXor': 1080, 'Global': 1068, 'Raise': 755, 'Assert': 686, 'Yield': 548, 'IsNot': 461, 'AnnAssign': 406, 'DictComp': 365, 'SetComp': 300, 'With': 134, 'withitem': 134, 'UAdd': 117, 'Invert': 103, 'NamedExpr': 40, 'Nonlocal': 31, 'YieldFrom': 16}
+
+def to_simple_tree(node: ast.AST) -> Union[tuple, str]:
     """Input is an AST of a program. Output is a tree with only the node
     names and no value information. E.g. when input is the AST of 
 
@@ -73,9 +80,9 @@ class Stats:
         default_factory=lambda : collections.Counter())
     
     # These will be updated with one value for every parsed problem:
-    num_tokens: [int] = field(default_factory = list)
-    depth: [int] = field(default_factory = list)
-    num_lines: [int] = field(default_factory = list)
+    num_tokens: List[int] = field(default_factory = list)
+    depth: List[int] = field(default_factory = list)
+    num_lines: List[int] = field(default_factory = list)
     
     num_failed: int = 0
     num_tried: int = 0

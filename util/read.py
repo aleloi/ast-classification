@@ -1,3 +1,7 @@
+import sys
+import ast
+from collections import Counter
+
 def read_code(id):
     BLOCK_LEN = 2**10 - 2
     BLOCK_BYTES = BLOCK_LEN * 4 + 8
@@ -16,15 +20,13 @@ def read_code(id):
         return f.read(length).decode('utf-8')
 
 if __name__ == '__main__':
-    import sys
-    import ast
-    from collections import Counter
+    
 
     code = read_code(int(sys.argv[1]))
     parsed = ast.parse(code)
 
 
-    C = Counter()
+    C : dict = Counter()
     class MyVis(ast.NodeVisitor):
         def generic_visit(self, node):
             C.update([type(node).__name__])
