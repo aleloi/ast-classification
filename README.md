@@ -23,3 +23,34 @@ The dataset consists of simplified ASTs of ~400000 short python programs grouped
 The goal of this project is to compare the performance of [Tree-LSTM](https://arxiv.org/abs/1503.00075) to [Tree-based CNN](https://arxiv.org/abs/1409.5718). I only plan to implement Tree-LSTM, and compare with the TBCNN performance on a simimilar classification task described in the TBCNN article.
 
 This is primarily an education project for training neural networks to take ASTs as input.
+
+## First results
+![tensorboard_linear_LSTM.png](tensorboard_linear_LSTM.png)
+
+I tested training the simplest possible model: flatten the AST, embed
+the tokens in 20-dim space, and process the resulting sequence by a
+normal linear LSTM.
+
+```
+LinearLSTM(
+  (embedding): Embedding(88, 20, padding_idx=87)
+  (lstm): LSTM(20, 20)
+  (linear): Linear(in_features=20, out_features=10, bias=True)
+  (loss): CrossEntropyLoss()
+)
+```
+
+This results in 95% accuracy when trained on a subset of the data
+(1000 solutions per class with 10 classes). I first tried with Adam
+with default parameters and learning rate `0.01` and training seems to
+have worked.
+
+## TODO
+* Do some analysis of the resulting embedding: which nodes are
+  closest, are there clusters? I expect `For, While` to be close.
+  `Break, Continue` should also be a group.
+* Write TreeLSTM
+* Extract some interesting metrics: between which tokens does the LSTM
+  forget? 
+* Check whether training is faster if we initialize embedding and LSTM
+  weights from a pre-trained model with fewer classes.
