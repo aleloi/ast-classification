@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional, List
 import torch.nn as nn
 import torch
 
@@ -8,7 +8,8 @@ import dataset
 class LinearLSTM(nn.Module):
     def __init__(self, embedding_dim: int,
                  lstm_output_dim : int,
-                 num_classes: int
+                 num_classes: int,
+                 extra_non_linear: Optional[int]
                  ):
         super(LinearLSTM, self).__init__()
         self.embedding_dim = embedding_dim
@@ -26,7 +27,25 @@ class LinearLSTM(nn.Module):
             hidden_size=lstm_output_dim)
 
         # Output is logit.
-        self.linear = nn.Linear(lstm_output_dim, num_classes)
+        linear_output_size = (extra_non_linear if
+                              extra_non_linear is not None
+                              else num_classes)
+        self.linear = nn.Linear(lstm_output_dim, linear_output_size)
+        fc_layers : List[nn.Module] = [self.linear]
+        if extra_non_linear is not None:
+            fc_layers.append(nn.Tanh())
+            fc_layers.append(nn.Linear(linear_output_size, num_classes))
+        self.fc_layers = nn.Sequential(*fc_layers)
+        
+        # Initialize the linear layer (LSTM has default
+        # initialization; not sure about the linear)
+        non_linearity = ('linear' if
+                         extra_non_linear is None
+                         else 'relu')
+        gain = nn.init.calculate_gain(non_linearity)
+        torch.nn.init.xavier_uniform_(
+            self.linear.weight, gain=gain
+        )
 
         # Default settings is batch average and softmax of inputs.
         self.loss = nn.CrossEntropyLoss()
@@ -62,7 +81,7 @@ class LinearLSTM(nn.Module):
         # randomly. Is that ingesting noise?
         lstm_output, (h_n, c_n) = self.lstm(progs_packed)
         h_n = torch.squeeze(h_n, 0)
-        logits = self.linear(h_n)
+        logits = self.fc_layers(h_n)
         assert logits.size() == (B, self.num_classes), logits.size()
 
         return logits
