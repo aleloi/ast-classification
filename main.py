@@ -186,7 +186,6 @@ parser.add_argument('--learning_rate',
                     )
 
 args = parser.parse_args()
-print(args)
 
 def print_and_exit(msg):
     print(msg)
@@ -285,8 +284,8 @@ if args.mode == 'predict':
     if args.predict_path is None:
         print_and_exit("--predict_path must be specified "
                        "when mode is predict")
-        
-    predict.predict(load_model(), args.predict_path)
+    model, _ = load_model()
+    predict.predict(model, args.predict_path)
     
 elif args.mode == 'train':
     if args.learning_rate is None:

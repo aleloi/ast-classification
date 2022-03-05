@@ -1,6 +1,5 @@
 import dataset
 import linear_lstm_model as lin_model
-# import tree_lstm_model as tree_model
 import dgl_lstm_model as dgl_model
 import collections
 

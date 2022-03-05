@@ -27,17 +27,19 @@ def predict(model, program_dir):
 
     with torch.no_grad():
         if is_linear:
-            res = model(torch.unsqueeze(flat_prog, 1),
+            batch_logits = model(torch.unsqueeze(flat_prog, 1),
                         torch.tensor([len(flat_prog)]))
-            #print(res)
         else:
-            res = model(dgl_tree.to(model.device))
-            #print(res)
-        res = list(torch.nn.Softmax(dim=0)(torch.squeeze(res)
-                                           ).cpu().numpy())
-        res = list(zip(res, problems))
-        for probab, problem in reversed(sorted(res)[-3:]):
-            print(f"P={probab:.3f}, prob={problem[0]}{problem[1]}")
+            batch_logits = model(dgl_tree.to(model.device))
+            
+        batch_probs = list(torch.nn.Softmax(dim=0)(
+            torch.squeeze(batch_logits)
+        ).cpu().numpy())
+        probs_labels = list(zip(batch_probs, problems))
+        print()
+        for probab, problem in reversed(
+                sorted(probs_labels)[-3:]):
+            print(f"P={probab:.3f}, problem={problem[0]}{problem[1]}")
             
         
 if __name__ == "__main__":
@@ -47,7 +49,6 @@ if __name__ == "__main__":
         'model_linear__classes_104__emb_dim_40__lstm_dim_200__fc_depth_3__label_smoothing_0_05__lr_0_0001')
 
     model, _ = utils.try_build_and_load_model(large_linear)
-
 
     for p in pathlib.Path('data/my/').glob('*.py'):
         print(f"\nPredicting {p}: ")

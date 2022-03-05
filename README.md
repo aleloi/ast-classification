@@ -96,6 +96,39 @@ also produce a better results.
 `TODO image when reduped dataset run finishes`
 
 ## Run the model
+To run you need `python >= 3.9` and `cuda 11.3`. Run `pip install -r
+requirements.txt`. Python `3.9` is required because I used
+`argparse.BooleanOptionalAction` which is a 3.9 feature. Cuda 11.3 is
+required because the `pytorch` and `dgl` versions in
+`requirements.txt` say so. I think I haven't hard-coded running on
+GPU, so a cuda-less `dgl` and `pytorch` probably also work, but I
+haven't tested.
+
+There is a runner script with far too many arguments. One can point it
+to a python file and ask it to predict which codeforses task it
+solves. I've included a saved model, so this should work after installing
+the dependencies:
+
+```
+python main.py --mode predict \
+   --saved_model_dir \
+   ./results/model_linear__classes_104__emb_dim_40__lstm_dim_200__fc_depth_3__label_smoothing_0_05__lr_0_002__prune_uniq_True \
+   --predict_path ./data/my/1454_D.py
+```
+
+This currently outputs
+```
+Using device [cuda].
+Loading model from ./results/model_linear__classes_104__emb_dim_40__lstm_dim_200__fc_depth_3__label_smoothing_0_05__lr_0_002__prune_uniq_True...
+./results/model_linear__classes_104__emb_dim_40__lstm_dim_200__fc_depth_3__label_smoothing_0_05__lr_0_002__prune_uniq_True contains runs 04-03-2022-21--21--08
+Latest run is: 04-03-2022-21--21--08
+Loading epoch: Epoch--199-Loss--3.50.pt out of 200 epochs
+Missing/unexpected: <All keys matched successfully>
+
+P=0.951, problem=1454D
+P=0.001, problem=467A
+P=0.001, problem=271A
+```
 
 
 ## TODO
