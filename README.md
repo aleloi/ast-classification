@@ -136,7 +136,9 @@ values and the token embeddings to Tensorboard.
 
 The `--small_train_samples` argument specifies how many samples of the
 training set are used after each epoch to estimate average gradient
-values and norms. The idea is to have the same sample distribution as the training data, so I use a smaller subset of training samples and the same batch size. For every weight matrix and bias vector $w$, I make a histogram of all $\|\frac{\partial \text{loss}_\text{batch}}{\partial w}\|_2$ for all the batches. The result may look like this:
+values and norms. The idea is to have the same sample distribution as the training data, so I use a smaller subset of training samples and the same batch size. For every weight matrix and bias vector $w$, I make a histogram of all 
+<img src="https://render.githubusercontent.com/render/math?math=\|\frac{\partial \text{loss}_\text{batch}}{\partial w}\|_2">
+for all the batches. The result may look like this:
 
 ![L2 norm of U matrix gradients](U_l2_grads.png)
 
