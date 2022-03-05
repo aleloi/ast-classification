@@ -130,6 +130,24 @@ P=0.001, problem=467A
 P=0.001, problem=271A
 ```
 
+## Tensorboard
+I am logging training curves, gradient values, gradient norms, weight
+values and the token embeddings to Tensorboard. 
+
+The `--small_train_samples` argument specifies how many samples of the
+training set are used after each epoch to estimate average gradient
+values and norms. The idea is to have the same sample distribution as the training data, so I use a smaller subset of training samples and the same batch size. For every weight matrix and bias vector $w$, I make a histogram of all $\|\frac{\partial \text{loss}_\text{batch}}{\partial w}\|_2$ for all the batches. The result may look like this:
+
+![L2 norm of U matrix gradients](U_l2_grads.png)
+
+The figure shows that gradient norms slowly decrease as training
+progresses. This is a useful debugging tool: before I added label
+smoothing, gradients increase instead of decreasing.
+
+To see the graphs, run `python -m tensorboard.main --logdir=results/`
+and open [http://localhost:6006](http://localhost:6006) once it has
+processed the data. I checked in some saved tensorboard data together
+with the trained LSTM model (although that may not have any histograms).
 
 ## TODO
 * Do some analysis of the resulting embedding: which nodes are
