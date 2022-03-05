@@ -72,6 +72,7 @@ class Dataset(tud.Dataset):
     def __init__(self, /,
                  flatten : bool,
                  take_top10: bool,
+                 do_prune_duplicates: bool,
                  drop_large_threshold_tokens: Optional[int] = None,
                  max_per_class: Optional[int] = None
                  ):
@@ -85,9 +86,9 @@ class Dataset(tud.Dataset):
         # TODO(aleloi): Possibly add 'drop tokens' option? To skip
         # some of the tokens.
         self.max_per_class = max_per_class
-        self.problems = (col_dat.MOST_COMMON10
-                         if take_top10
-                         else col_dat.MOST_COMMON)
+        self.problems = sorted(col_dat.MOST_COMMON10
+                               if take_top10
+                               else col_dat.MOST_COMMON)
         self.num_classes = len(self.problems)
         self.has_program_trees = not flatten
 
@@ -95,9 +96,11 @@ class Dataset(tud.Dataset):
         self.program_trees : List[dgl.DGLGraph] = []
         classes: List[int] = []
         num_large_dropped = 0
+
+        prune_uniq = '.uniq.txt' if  do_prune_duplicates else ''
         
         for problem_num, (contest, letter) in enumerate(self.problems):
-            filepath = os.path.join('data', f'cont{contest}_prob{letter}.txt')
+            filepath = os.path.join('data', f'cont{contest}_prob{letter}.txt{prune_uniq}')
             num_programs = 0
             for problem_idx, line in enumerate(
                     open(filepath, 'r').readlines()):
@@ -114,7 +117,19 @@ class Dataset(tud.Dataset):
                 else:
                     self.program_trees.append(to_dgl_tree(line))
                 num_programs += 1
-                classes.append(problem_num)
+
+                # Special case that's messy to fix: turns out problem
+                # 11 and 31 are the same promle,
+                # https://codeforces.com/contest/1465/problem/A and
+                # https://codeforces.com/contest/1411/problem/A. I
+                # have a bunch of pre-trained models and rely on the
+                # exact class numbers, so adding a different problem
+                # would mess up the classes. Therefore, just relabel
+                # them, and use 103 classes instead of 104.
+                if problem_num == 31:
+                    classes.append(11)
+                else:
+                    classes.append(problem_num)
 
                 if (len(self.programs) + len(self.program_trees)) % 10000 == 0:
                     print(f"In dataset; parsing problem {problem_idx} "
@@ -142,6 +157,10 @@ class Dataset(tud.Dataset):
         assert count.size() == (self.num_classes,), (
             count.size(), self.num_classes)
         class_weights = 1/count
+
+        # The index 11 vs 31 bug (see comment above).
+        if self.num_classes > 10:
+            class_weights[31] = 0.
         print(f"Class weights are: {class_weights}")
         weights = torch.tensor([class_weights[problem_class]
                                 for problem_class in class_labels])
@@ -190,6 +209,7 @@ class DataArgs(typing.NamedTuple):
     test_samples: Optional[int]
     small_train_samples: int
     batch_size: int
+    do_prune_duplicates: bool = True
     drop_large_threshold_tokens: Optional[int] = None
     max_per_class: Optional[int] = None
     
@@ -204,7 +224,9 @@ def get_datasets(opts: DataArgs) -> Tuple[tud.DataLoader,
     full_ds = Dataset(
         flatten=opts.flatten, take_top10=opts.take_top10,
         drop_large_threshold_tokens=opts.drop_large_threshold_tokens,
-        max_per_class=opts.max_per_class)
+        max_per_class=opts.max_per_class,
+        do_prune_duplicates=opts.do_prune_duplicates
+    )
     tot_w  = opts.training_weight + opts.validation_weight + opts.test_weight
     training_weight, validation_weight, test_weight = (
         opts.training_weight / tot_w,
@@ -282,7 +304,10 @@ if __name__ == '__main__':
                   max_per_class=10)
 
     dl_train, dl_small_train, dl_val, dl_test = get_datasets(da)
-    
+
+    gen = (x for x in dl_train)
+    print(next(gen))
+        
     def drop_last(generator):
         cand = next(generator, None)
         while True:

@@ -9,12 +9,14 @@ class LinearLSTM(nn.Module):
     def __init__(self, embedding_dim: int,
                  lstm_output_dim : int,
                  num_classes: int,
-                 extra_non_linear: Optional[int]
+                 extra_non_linear: Optional[int],
+                 label_smoothing: Optional[float]
                  ):
         super(LinearLSTM, self).__init__()
         self.embedding_dim = embedding_dim
         self.lstm_output_dim = lstm_output_dim
         self.num_classes = num_classes
+        self.label_smoothing = label_smoothing
         
         # One learnable vector for every token type.
         self.embedding = nn.Embedding(
@@ -49,9 +51,17 @@ class LinearLSTM(nn.Module):
 
         # Default settings is batch average and softmax of inputs.
         self.loss = nn.CrossEntropyLoss()
+        if self.label_smoothing is not None:
+            self.train_loss = nn.CrossEntropyLoss(
+                label_smoothing=self.label_smoothing)
+        else: 
+            self.train_loss = self.loss
+            
 
         self.set_gpu_use()
-        
+
+    def named_weights(self):
+        return [  ]
 
     def forward(self,
                 progs: torch.Tensor,

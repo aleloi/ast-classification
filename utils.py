@@ -4,6 +4,7 @@ import linear_lstm_model as lin_model
 import dgl_lstm_model as dgl_model
 import collections
 
+import re
 import numpy as np
 import torch
 import torch.utils.data as tud
@@ -98,6 +99,7 @@ def create_model_directory(ds_args: dataset.DataArgs,
                            really_create = True,
                            include_timestamp = True,
                            ) -> str:
+    #breakpoint()
     now = datetime.datetime.now()
     timestamp = now.strftime("%d-%m-%Y-%H--%M--%S")
 
@@ -112,6 +114,7 @@ def create_model_directory(ds_args: dataset.DataArgs,
                   f'__fc_depth_{len(model.fc_layers)}' 
                   f'__label_smoothing_{float_to_str(model.label_smoothing)}'
                   f'__lr_{float_to_str(lr)}'
+                  f'__prune_uniq_{ds_args.do_prune_duplicates}'
                   )
 
     
@@ -127,7 +130,10 @@ def create_model_directory(ds_args: dataset.DataArgs,
 def save_checkpoint(model, val_loss, epoch, save_dir):
     print(f"\t\t >>> epoch is {epoch}. Saving model ... <<< ")
     best_model_filename = f'{save_dir}/Epoch--{epoch}-Loss--{val_loss:.2f}.pt'
+    for var, value in model.state_dict().items():
+        print(f"Saving var {var}, l2 is {float(torch.linalg.norm(value).detach().cpu())}")
     torch.save(model.state_dict(), best_model_filename)
+    
         
 if __name__ == '__main__':
     ds_args = {'validation_proportion': 0.8, 'flatten': True,
@@ -140,6 +146,45 @@ def last_modified_subdir(path):
     p = pathlib.Path(path)
     dir_p = [x for x in p.iterdir() if x.is_dir()]
     return max(dir_p, key=lambda x: x.stat().st_mtime)
+
+# Maybe should have saved config files?
+def try_build_and_load_model(save_dir):
+    p = pathlib.Path(save_dir)
+    model_name = p.parts[-1]
+    assert p.parts[-1].startswith("model_"), p
+    m = re.match(
+        r"model_(?P<model_kind>\w+)__classes_(?P<classes_size>\d+)__"
+        r"emb_dim_(?P<embedding_dim>\d+)__"
+        r"lstm_dim_(?P<lstm_output_dim>\d+)__"
+        r"fc_depth_(?P<fc_depth>\d+)__"
+        r"label_smoothing_(?P<label_smoothing>0_\d+)"
+        r".*",
+        model_name)
+    if m is None:
+        assert False, f"{model_name} doesn't match expected format"
+    def from_float_str(s):
+        return float(s.replace('_', '.'))
+    args = {
+        'embedding_dim': int(m.group('embedding_dim')),
+        'num_classes': int(m.group('classes_size')),
+        'lstm_output_dim': int(m.group('lstm_output_dim')),
+        'fc_depth': int(m.group('fc_depth')),
+        'label_smoothing': from_float_str(m.group('label_smoothing'))
+    }
+    # TODO: this can be done properly by reading the state_dict
+    # instead.
+    if args['fc_depth'] == 3:
+        args['extra_non_linear'] = 200
+    del args['fc_depth']
+    if m.group('model_kind') == 'linear':
+        model = lin_model.LinearLSTM(**args)
+    elif m.group('model_kind') == 'tree':
+        model = dgl_model.DGLTreeLSTM(**args)
+    else:
+        assert False, m.group('model_kind')
+    results_dir = load_model(model, save_dir)
+    return model, results_dir
+    
 
 def load_model(model, save_dir, epoch=None):
     """Loads most recent model from 'save_dir'"""
@@ -168,7 +213,15 @@ def load_model(model, save_dir, epoch=None):
     if torch.cuda.device_count() == 0:
         kwargs['map_location'] = torch.device('cpu')
     state_dict = torch.load(latest_epoch, **kwargs)
-    model.load_state_dict(state_dict)
+    #for var, value in state_dict.items():
+    #    print(f"Loading var {var}, l2 is {float(torch.linalg.norm(value).detach().cpu())}")
+    
+    miss_unexp = model.load_state_dict(state_dict)
+    print(f"Missing/unexpected: {miss_unexp}")
+
+    #for var, value in model.state_dict().items():
+    #    print(f"Loaded var {var}, l2 is {float(torch.linalg.norm(value).detach().cpu())}")
+    model.to(model.device)
     return latest_run
     
     

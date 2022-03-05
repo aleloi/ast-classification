@@ -16,34 +16,87 @@ The dataset consists of simplified ASTs of ~400000 short python programs grouped
     num lines stats: [4.0, 6.0, 7.0, 8.0, 10.0, 11.0, 13.0, 16.0, 21.0]
     num tokens stats: [36.0, 47.0, 57.0, 65.0, 73.0, 82.0, 94.0, 112.0, 146.0]
     depth stats: [7.0, 7.0, 8.0, 8.0, 9.0, 9.0, 10.0, 10.0, 11.0]
+	
+Some ASTs are very large because some solutions start with a long template. Initially I filtered out the longest 1% of the data. Modify [dataset.DataArgs.drop_large_threshold_tokens](dataset.py#L193) to change this.
+
+Two classes in the dataset correspond to the same problem. It appears twice on Codeforces, as [codeforces.com/contest/1465/problem/A](https://codeforces.com/contest/1465/problem/A) and as [codeforces.com/contest/1411/problem/A](https://codeforces.com/contest/1411/problem/A). Since I noticed this quite late in development, there is a hack in [dataset.py](dataset.py) that manually assigns both these problems the same label. Otherwise, the labels would be permuted, and that hinders evaluation of saved models.
+
+The dataset contains plenty of duplicate ASTs. As stated above, there are ~400k ASTs, but only ~200k unique ASTs. There is a version of the dataset without duplicates in `data/cont*_prob*.txt.uniq.txt`.
+
+The solution distribution in the dataset is pretty inhomogeneous. The most common problems have ~20k solutions, and the least common has ~1000. I want to compare results to [Tree-based CNN](https://arxiv.org/abs/1409.5718), which had exactly 500 problems per class. To ensure a uniform prior over problem class, I first randomly split the dataset, and then use weighted sampling. One epoch draws `500*num_classes` samples from the training split. Check [train\_dgl.py](train_dgl.py#L21) for dataset options.
 
 
 ## Tree-LSTM vs Tree-Based CNN
 
-The goal of this project is to compare the performance of [Tree-LSTM](https://arxiv.org/abs/1503.00075) to [Tree-based CNN](https://arxiv.org/abs/1409.5718). I only plan to implement Tree-LSTM, and compare with the TBCNN performance on a simimilar classification task described in the TBCNN article.
+The goal of this project is to compare the performance of [Tree-LSTM](https://arxiv.org/abs/1503.00075) to [Tree-based CNN](https://arxiv.org/abs/1409.5718). I only plan to implement Tree-LSTM, and compare with the TBCNN performance on a simimilar classification task to the one described in the TBCNN article.
 
 This is primarily an education project for training neural networks to take ASTs as input.
 
-## First results
-![tensorboard_linear_LSTM.png](tensorboard_linear_LSTM.png)
+## Results
+I got 97.2% accuracy on my 104 problems dataset with ordinary LSTM
+(*TODO eval on test set at epoch 28*) and ??% accuracy with
+TreeLSTM. Training the TreeLSTM took about a day on a laptop. Training
+speed was ~30 samples per second for TreeLSTM and about 400 samples
+per second for LSTM. I used Adam momentums $(0.9, 0.999)$ (Pytorch
+default), and learning rate 0.0001. 
 
-I tested training the simplest possible model: flatten the AST, embed
-the tokens in 20-dim space, and process the resulting sequence by a
-normal linear LSTM.
+With the original dataset, I do not observe any overfitting. The
+dataset contains duplicate entries that end up in both validation and
+training set. This reduces observed overfitting, because we in part
+evaluate on the training set. It also contains two identical
+problems. After ca epoch 100 and 3-4 hours of training, misclassified
+training samples are almost entirely composed of the duplicate
+problem. This makes the network see relatively large gradients every
+100 samples, which I think has a slight regularizing effect.
+
+![Model described below, trained for 6.5 hours, no overfitting](tensorboard_linear_no_overfit.png)
+
+
+When duplicate solutions are removed, and the two duplicate problems
+are merged I got 97.2% accuracy (*TODO eval on test set at epoch 28*)
+on the 103 remaining classes with linear LSTM. This it does start
+overfitting pretty fast. I did not include any regularization because
+I discovered the overfitting quite late and because [the Tree-based
+CNN article](https://arxiv.org/abs/1409.5718) says that they found that no
+regularization worked best for RNN models.
+
+![Same model, same training, cleared data set](tensorboard_linear_overfit.png)
+
+### Tree-LSTM
+I made a simple Pytorch Tree-LSTM implementation by following
+equations (2-8) in the [Tree-Structured Long Short-Term
+Memory](https://arxiv.org/pdf/1503.00075.pdf) article. It managed to
+train at ~16 samples per second on CPU. I managed to push it up to 22
+samples/second. Training on GPU was even slower at 5 samples/s. I then
+adapted an LSTM implementation from the [Deep Graph
+Network](https://www.dgl.ai/) examples repository which now runs at 40
+samples/s. This is ca 10 times slower than the linear LSTM speed.
 
 ```
-LinearLSTM(
-  (embedding): Embedding(88, 20, padding_idx=87)
-  (lstm): LSTM(20, 20)
-  (linear): Linear(in_features=20, out_features=10, bias=True)
+DGLTreeLSTM(
+  (embedding): Embedding(88, 40, padding_idx=87)
+  (lstm_cell): ChildSumTreeLSTMCell(
+    (W_iou): Linear(in_features=40, out_features=600, bias=False)
+    (U_iou): Linear(in_features=200, out_features=600, bias=False)
+    (U_f): Linear(in_features=200, out_features=200, bias=True)
+  )
+  (fc_layers): Sequential(
+    (0): Linear(in_features=200, out_features=200, bias=True)
+    (1): Tanh()
+    (2): Linear(in_features=200, out_features=104, bias=True)
+  )
   (loss): CrossEntropyLoss()
+  (train_loss): CrossEntropyLoss()
 )
 ```
 
-This results in 95% accuracy when trained on a subset of the data
-(1000 solutions per class with 10 classes). I first tried with Adam
-with default parameters and learning rate `0.01` and training seems to
-have worked.
+Tree-LSTMs train much faster when measured in samples processed. They
+also produce a better results.
+
+`TODO image when reduped dataset run finishes`
+
+## Run the model
+
 
 ## TODO
 * Do some analysis of the resulting embedding: which nodes are
