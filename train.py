@@ -82,7 +82,7 @@ def train(model, epoch: int,
           dl_train_small: tud.DataLoader,
           dl_val: tud.DataLoader,
           results_dir: str):
-    i = epoch
+    i = epoch+1
     is_linear = isinstance(model, linear_model.LinearLSTM)
     writer = SummaryWriter(results_dir)
     while i < num_epochs:

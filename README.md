@@ -1,5 +1,5 @@
 # AST classification
-A ML classification task where input consists of simplified AST representations of python programs
+A ML classification task where input consists of simplified AST representations of python programs. Here is short [presentation slideshow](https://docs.google.com/presentation/d/1Jqq9qTLMgDsSmTd_YEAJxzHi0bhY21n-kL7wTI6-3hg/edit?usp=sharing) of this project.
 
 ## Dataset
 
@@ -33,8 +33,8 @@ The goal of this project is to compare the performance of [Tree-LSTM](https://ar
 This is primarily an education project for training neural networks to take ASTs as input.
 
 ## Results
-I got 97.2% accuracy on my 104 problems dataset with ordinary LSTM
-(*TODO eval on test set at epoch 28*) and ??% accuracy with
+I got 97% accuracy on my 104 problems dataset with ordinary LSTM
+(*TODO eval on test set at epoch 28*) and 98% accuracy with
 TreeLSTM. Training the TreeLSTM took about a day on a laptop. Training
 speed was ~30 samples per second for TreeLSTM and about 400 samples
 per second for LSTM. I used Adam momentums $(0.9, 0.999)$ (Pytorch
@@ -54,8 +54,8 @@ problem. This makes the network see relatively large gradients every
 
 When duplicate solutions are removed, and the two duplicate problems
 are merged I got 97.2% accuracy (*TODO eval on test set at epoch 28*)
-on the 103 remaining classes with linear LSTM. This it does start
-overfitting pretty fast. I did not include any regularization because
+on the 103 remaining classes with linear LSTM. It does start
+overfitting after processing `28*104*500 ~ 1000k` samples trained at `lr=0.002` for the first 10 epochs and then `lr=0.0001`. I did not include any regularization because
 I discovered the overfitting quite late and because [the Tree-based
 CNN article](https://arxiv.org/abs/1409.5718) says that they found that no
 regularization worked best for RNN models.
@@ -150,6 +150,42 @@ To see the graphs, run `python -m tensorboard.main --logdir=results/`
 and open [http://localhost:6006](http://localhost:6006) once it has
 processed the data. I checked in some saved tensorboard data together
 with the trained LSTM model (although that may not have any histograms).
+
+## Confusion matrix
+I wondered whether there is a pattern in which problems are
+misclassified into which. The figure below is a kind of confusion
+matrix, but I've removed the diagonal, and cell numbers are not
+probabilities. It is essentially a histogram of all true and predicted
+classes of misclassified samples from the test set.
+
+![Confusion matrix](confusion_matrix.png)
+
+The classes are ordered lexicographically with string comparison. I
+don't remember why, but problem names ended up as strings in
+[util/collect\_dataset.py](util/collect_dataset.py). When I generated
+the dataset, I made a frequency analysis on *parts* of the full
+Codeforces data, and picked the 104 most common classes. Then I re-run
+data collection on a much larger subset of the CF dump, and in the end
+I got lots of problems from contests `1400-1500`. Classes 11-65 are
+all `14xx` contests. They also seem to be the classes between which
+there is least confusion. 
+
+The only thing I can think of that separates them from other classes
+is number of programs per class. The `14xx` are on average 5-10 times
+less common in the dataset than other problems. It could of course
+happen that `14xx` problems are different in some other way,
+e.g. problem setters keep track of recent problems and don't propose
+similars ones, but I find that explanation unlikely.
+
+When a problem has a large class, say 5000 data points, it takes about
+10 epochs until the networks sees the same instance again. Perhaps for a
+large class the network learns that there is large variability in the
+training and all kinds of inputs may get classified to this class. It
+learns to be less confident and often assigns high probability to the
+largest classes.
+
+
+
 
 ## TODO
 * Do some analysis of the resulting embedding: which nodes are

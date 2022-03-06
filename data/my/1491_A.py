@@ -1,4 +1,4 @@
-# https://codeforces.com/contest/1494/problem/A
+# https://codeforces.com/contest/1491/problem/A
 # Writing test solutions to feed to a solution classifier
 # https://github.com/aleloi/ast-classification (it's guessing 
 # which out of 104 CF problems this solves)
